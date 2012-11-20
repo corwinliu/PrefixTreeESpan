@@ -11,7 +11,6 @@ python main.py -i inputfile -o outputfile -s minsup
 - -i Path to input file, default to 'test.in', test example in the paper
 - -o Path to output file, default to 'test.out'
 - -s MinSup for the frequent subtree, int type, default to '2'
-```
 
 ### Specific data
 
@@ -46,4 +45,7 @@ P.S. You need xelatex
 
 ## Reference
 
-Lei Zou, Yansheng Lu, Huaming Zhang, and Rong Hu. Prefixtreeespan: A pattern growth algorithm for mining embedded subtrees. In Proceedings of the 7th international conference on Web Information Systems, WISE’06, pages 499–505, Wuhan, China, 2006. Springer-Verlag.
+Lei Zou, Yansheng Lu, Huaming Zhang, and Rong Hu.
+Prefixtreeespan: A pattern growth algorithm for mining embedded subtrees.
+In Proceedings of the 7th international conference on Web Information Systems,
+WISE’06, pages 499–505, Wuhan, China, 2006. Springer-Verlag.
