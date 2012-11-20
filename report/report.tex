@@ -1,0 +1,367 @@
+% !Mode:: "TeX:UTF-8"
+% +-----------------------------------------------------------------------------
+% | File: report
+% | Author: huxuan
+% | E-mail: i(at)huxuan.org
+% | Created: 2012-11-13
+% | Last modified: 2012-11-13
+% | Description:
+% |     Description for report
+% |
+% | Copyrgiht (c) 2012 by huxuan. All rights reserved.
+% | License GPLv3
+% +-----------------------------------------------------------------------------
+
+\documentclass{ctexart}
+\usepackage[top=1in,bottom=1in,left=1.25in,right=1.25in]{geometry}
+
+\renewcommand{\baselinestretch}{1.5}
+
+\let\stdsection\section
+\renewcommand\section{\newpage\stdsection}
+
+\usepackage{color}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\usepackage[ruled,vlined]{algorithm2e}
+
+\usepackage{hyperref}
+\hypersetup{colorlinks}
+
+\usepackage{listings}
+\renewcommand{\lstlistingname}{代码}
+\lstset{
+    backgroundcolor=\color{white},
+    basicstyle=\zihao{5}\ttfamily,
+    columns=flexible,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    frame=single,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    stepnumber=1,
+    rulecolor=\color{black},
+    tabsize=2,
+    % texcl=true,
+    title=\lstname,
+    escapeinside={\%*}{*)},
+    extendedchars=false,
+    mathescape=true,
+    xleftmargin=3em,
+    xrightmargin=3em,
+    numberstyle=\color{gray},
+    keywordstyle=\color{blue},
+    commentstyle=\color{dkgreen},
+    stringstyle=\color{mauve},
+}
+
+\RequirePackage{dirtree}
+\renewcommand*\DTstylecomment{\ttfamily\color{dkgreen}}
+\renewcommand*\DTstyle{\ttfamily\color{red}}
+
+\title{PrefixTreeESpan算法实验报告}
+\author{扈煊 1201214133}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{实验目的}
+
+\begin{itemize}
+    \item 理解并实现基于模式增长的频繁子树挖掘算法 PrefixTreeESpan
+        \cite{zou2006prefixtreeespan}
+    \item[] （{\bf Prefix}-{\bf Tree}-projected
+        {\bf E}mbedded-{\bf S}ubtree {\bf pa}tter{\bf n}）
+    \item 验证算法基本正确性并进行可能的优化和改进
+\end{itemize}
+
+\section{作业说明}
+
+\subsection{目录文件结构}
+
+本次作业打包包含的内容及其说明如下：
+
+{
+    \dirtree{%
+        .1 PrefixTreeESpan.
+        .2 main.py \DTcomment{算法实现主程序}.
+        .2 tree.py \DTcomment{辅助类tree.Node}.
+        .2 project.py \DTcomment{辅助类project.Project}.
+        .2 README.txt \DTcomment{简要说明}.
+        .2 test.in \DTcomment{demo 测试文件}.
+        .2 Makefile \DTcomment{Makefile 脚本，用于make方式运行命令}.
+        .2 data/ \DTcomment{数据集目录}.
+        .3 CSlog.data.
+        .3 D10.data.
+        .3 F5.data.
+        .3 T1M.data.
+        .2 output/ \DTcomment{输出结果目录，对应不同的测试编号}.
+        .3 CSlog-1.out.
+        .3 D10-1.out.
+        .3 D10-2.out.
+        .3 D10-3.out.
+        .3 F5-1.out.
+        .3 F5-2.out.
+        .3 F5-3.out.
+        .2 report/ \DTcomment{实验报告目录}.
+        .3 report.tex \DTcomment{\LaTeX{}源文件}.
+        .3 report.bib \DTcomment{BiB\TeX{}参考文献文件}.
+        .3 Makefile \DTcomment{\TeX{}make脚本}.
+    }
+}
+
+\subsection{运行方法}
+
+\subsubsection{Makefile}
+
+Makefile 脚本的运行方法正对特定的数据集，需要支持make命令的环境，
+即\ref{subsubsec-result}节实验结果中对应的不同测试样例，
+运行方法为"make 测试编号"，如测试编号为“CSlog-1”，则运行命令为“make CSlog-1”，
+具体测试编号请见表\ref{tab-result}。
+
+\subsubsection{Python}
+
+Python 脚本的运行方法针对通用的数据集，可以自定义输入文件、输出文件和最小支持度
+
+\begin{description}
+    \item [命令行] python main.py -i inputfile -o outputfile -s minsup
+    \item [参数说明] ~
+    \begin{description}
+        \item[-i] 必选，输入文件，即图数据库对应文件，
+            默认值为"test.in"，为论文中提到的实例
+        \item[-o] 可选，输出文件，即结果输出文件，默认值为"test.out"
+        \item[-s] 必选，最小支持度，整型，默认值为"2"
+    \end{description}
+\end{description}
+
+\section{算法设计}
+
+\subsection{主要思想}
+
+\begin{itemize}
+    \item 频繁子树的推导子树一定是频繁的
+    \item 频繁子树总是可以通过其前缀树增长得到
+    \item 利用深度优先搜索的思想通过递归迭代不断对前缀树进行增长，
+        统计频繁的增长因子，从而得到更多的频繁子树
+\end{itemize}
+
+\subsection{伪代码}
+
+\begin{algorithm}[H]
+    \caption{PrefixTreeESpan()}
+    \KwData{树数据库 $TreeDB$, 最小支持计数 $MINSUP$}
+
+    利用栈深度优先遍历每棵树中所有节点，计算配对范围 \;
+    利用集合合并每棵树中的标签，统计标签计数 \;
+    将每个标签计数与最小支持计数比较得一阶频繁标签集合 \;
+    \For{一阶频繁子树 $in$ 一阶频繁子树集合}{
+        保存和输出一阶频繁子树即前缀树 $pre\_tree$ \;
+        \For{一阶频繁子树在数据库 $TreeDB$ 中的出现}{
+            对于每一例出现生成其对应的投影实例 \;
+            将投影实例加入到新的投影数据库中 $ProDB$ \;
+        }
+        调用函数$get\_fre$ ( $pre\_tree$, $1$, $ProDB$ ) \;
+    }
+\end{algorithm}
+
+\begin{algorithm}[H]
+    \caption{$get\_fre$ ( $pre\_tree$, $n$, $ProDB$ )}
+
+    利用集合统计所有投影实例中的增长因子计数 \;
+    将每个增长因子计数与最小支持计数比较得到频繁增长因子 \;
+    \For{$n+1$阶增长因子 $in$ $n+1$阶增长因子集合}{
+        生成、保存并输出$n+1$阶频繁子树即前缀树 $pre\_tree\_new$ \;
+        \For{$n+1$阶增长因子在投影数据库$ProDB$中的出现}{
+            对于每一例出现生成其对应的投影实例 \;
+            将投影实例加入到心的投影数据库中 $ProDB\_new$ \;
+        }
+        调用函数$get\_fre$ ( $pre\_tree\_new$, $n+1$, $ProDB\_new$ ) \;
+    }
+\end{algorithm}
+
+% \begin{algorithm}[H]
+%     \caption{PrefixTreeESpan()}
+%     \begin{algorithmic}[1]
+%         \REQUIRE 树数据库 $TreeDB$, 最小支持计数 $MINSUP$
+%         \STATE 利用栈深度优先遍历每棵树中所有节点，计算配对范围
+%         \STATE 利用集合合并每棵树中的标签，统计标签计数
+%         \STATE 将每个标签计数与最小支持计数比较得一阶频繁标签集合
+%         \FORALL{一阶频繁子树 $in$ 一阶频繁子树集合}
+%             \STATE 保存和输出一阶频繁子树即前缀树 $pre\_tree$
+%             \FORALL{一阶频繁子树在数据库 $TreeDB$ 中的出现}
+%                 \STATE 对于每一例出现生成其对应的投影实例
+%                 \STATE 将投影实例加入到新的投影数据库中 $ProDB$
+%             \ENDFOR
+%             \STATE 调用函数$get\_fre$ ( $pre\_tree$, $1$, $ProDB$ )
+%         \ENDFOR
+%     \end{algorithmic}
+% \end{algorithm}
+% 
+% \begin{algorithm}[H]
+%     \caption{$get\_fre$ ( $pre\_tree$, $n$, $ProDB$ )}
+%     \begin{algorithmic}[1]
+%         \STATE 利用集合统计所有投影实例中的增长因子计数
+%         \STATE 将每个增长因子计数与最小支持计数比较得到频繁增长因子
+%         \FORALL{$n+1$阶增长因子 $in$ $n+1$阶增长因子集合}
+%             \STATE 生成、保存并输出$n+1$阶频繁子树即前缀树 $pre\_tree\_new$
+%             \FORALL{$n+1$阶增长因子在投影数据库$ProDB$中的出现}
+%                 \STATE 对于每一例出现生成其对应的投影实例
+%                 \STATE 将投影实例加入到心的投影数据库中 $ProDB\_new$
+%             \ENDFOR
+%             \STATE 调用函数$get\_fre$ ( $pre\_tree\_new$, $n+1$, $ProDB\_new$ )
+%         \ENDFOR
+%     \end{algorithmic}
+% \end{algorithm}
+
+\section{算法实现}
+
+\subsection{算法实现概述}
+
+本次实验使用了Python语言进行了代码的编写，
+采用Python语言的主要原因除了个人使用比较熟练以外，
+还考虑到可以使用Python中的高级数据结构，如列表、字典和集合，来简化一些处理。
+并且在处理命令行参数和字符串处理等方面，Python包装的很好使用起来更顺手一些。
+
+\subsection{辅助类}
+
+\begin{description}
+    \item[tree.Node] 表示树中的每一个节点，记录其标号和匹配范围
+    \begin{description}
+        \item[Node.label] 表示该节点的标号
+        \item[Node.label] 表示该节点对应的匹配位置范围，即与其对应的"-1"的序号
+    \end{description}
+    \item[project.Project] 封装为一个投影数据库的信息，
+        主要参考了论文中所述的伪投影法，为了方便使用有所修改。
+    \begin{description}
+        \item[Project.tid] 表示该投影数据库所在的树的序号
+        \item[Project.offset\_list] 表示该投影数据库每一部分在树中的偏移量列表
+        \item[Project.scope\_list] 表示该投影数据库每一部分在树中每一个偏移量
+            对应父节点的匹配位置范围列表
+    \end{description}
+\end{description}
+
+\subsection{伪投影数据库}
+
+论文原文中的伪投影数据库采用的是三元组的形式，但是不难发现tid，
+即树的编号是重复的，因为投影数据库只可能是某一棵树的子树或森林，
+而不可能跨越不同的树，所以本次实现中将投影数据库封装成了一个类，
+其中tid表示该树的序号，三元组中的其他两个元素分别用列表对应存储。
+具体实现见代码\ref{code-project}。
+
+\section{实验结果}
+
+\subsection{实验环境}
+
+\begin{description}
+    \item[CPU] Intel\textsuperscript{\textregistered}
+        Core\textsuperscript{\texttrademark}2 Duo CPU T7500 @ 2.20GHz × 2
+    \item[RAM] 1G * 2
+    \item[OS]  Ubuntu-Desktop 12.10 64-bit
+\end{description}
+
+\subsection{测试数据}
+\label{subsec-test-data}
+
+本次测试选用了老师提供的4个测试集，
+每个测试集的文件大小及其包含树的个数见表\ref{tab-test-data}
+
+\begin{table}[!h]
+    \centering
+    \caption{数据集文件大小及其包含树的个数}
+    \label{tab-test-data}
+    \begin{tabular}{c|c|c}
+        \hline
+        数据集  & 文件大小(M) & 树的个数 \\ \hline
+        CSlog   &  6.0        &   59691 \\ \hline
+        D10     &  1.7        &  100000 \\ \hline
+        F5      &  1.8        &  100000 \\ \hline
+        T1M     & 15.0        & 1000000 \\ \hline
+    \end{tabular}
+\end{table}
+
+\subsection{实验结果}
+\label{subsec-result}
+
+本次实验主要针对\ref{subsec-test-data}节中提到的数据集进行了测试，
+每个数据集分别选用了最小支持度百分比为10\%、1\%和0.1\%三个比例进行了测试，
+所有输出结果都在output文件夹中，对应的文件名为“测试编号.out”，
+如测试编号D10-1对应的输出文件为“D10-1.out”，输出内容为所有挖掘出来的频繁子树，
+最后一行为所消耗的时间，得到的统计结果见表\ref{tab-result}。
+
+\begin{table}[h!]
+    \centering
+    \caption{实验结果}
+    \label{tab-result}
+    \begin{tabular}[h!]{l|l|r|r|r|c}
+        \hline
+        数据集 & 测试编号 & MINSUP 个数 & MINSUP 百分比 & 频繁子树个数 & 运行时间 \\ \hline
+        CSlog & CSlog-1 & 5969 & 10 & 2 & 00:06.95 \\ \hline
+        D10 & D10-1 & 10000 & 10 & 6 & 00:04.17 \\ \hline
+        D10 & D10-2 & 1000 & 1 & 405 & 00:22.13 \\ \hline
+        D10 & D10-3 & 100 & 0.1 & 7426 & 00:59.79 \\ \hline
+        F5 & F5-1 & 10000 & 10 & 16 & 00:06.11 \\ \hline
+        F5 & F5-2 & 1000 & 1 & 180 & 00:15.30 \\ \hline
+        F5 & F5-3 & 100 & 0.1 & 928 & 00:25.72 \\ \hline
+    \end{tabular}
+\end{table}
+
+\section{实验总结}
+
+\subsection{关于 T1M}
+
+比较实验数据和实验结果，不难看出没有T1M数据集相关的结论，
+在试验过程中运行T1M数据集时，内存占用会迅速膨胀，
+不用一会就会将整个计算机的内存耗尽，所以就没有让程序继续运行。
+CSlog数据集的最小支持度为1\%和0.1\%的测试用例也是同样的原因没有得到最终结果。
+主要原因应该有以下几个方面：
+\begin{itemize}
+    \item Python作为解释型脚本语言，本身运行时就会占用较多内存，
+        对内存的要求也比较高
+    \item 算法中使用了递归的逻辑，没有进行非递归实现
+    \item 算法实现过程中使用了较多高级数据结构，尤其在递归中还作为了参数，
+        用来当前的前缀树和投影数据库
+\end{itemize}
+
+\subsection{关于效率}
+
+出本次算法实现的效率和论文中已经实现的方法相比总体偏低，
+个人觉得主要原因有如下几点：
+\begin{itemize}
+    \item Python 语言本身执行效率没有C/C++之类的语言高
+    \item 未实现论文中已提到的另一个优化，提前减枝，删去数据中不频繁的节点
+    \item 算法实现的其他细节还没有充分优化，比如文件输出、内存清空等
+\end{itemize}
+
+\section{源代码及注释}
+
+\lstinputlisting[
+    language={Python},
+    label={code-tree},
+    caption={辅助类tree.Node},
+]{../tree.py}
+
+\lstinputlisting[
+    language={Python},
+    label={code-project},
+    caption={辅助类project.Project},
+]{../project.py}
+
+\lstinputlisting[
+    language={Python},
+    label={code-prefixtreeespan},
+    caption={PrefixTreeESpan算法实现主体},
+]{../main.py}
+
+\bibliographystyle{plain}
+\bibliography{report}
+\addcontentsline{toc}{chapter}{参考文献}
+
+\end{document}
