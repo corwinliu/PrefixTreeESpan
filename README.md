@@ -8,7 +8,7 @@
 python main.py -i inputfile -o outputfile -s minsup
 ```
 
-- -i Path to input file, default to 'test.in'
+- -i Path to input file, default to 'test.in', test example in the paper
 - -o Path to output file, default to 'test.out'
 - -s MinSup for the frequent subtree, int type, default to '2'
 ```
